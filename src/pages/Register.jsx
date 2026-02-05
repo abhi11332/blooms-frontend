@@ -2,6 +2,8 @@ import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -10,13 +12,48 @@ export default function Register() {
     email: "",
     password: ""
   });
+  const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const navigate = useNavigate();
 
+  const validate = () => {
+    const nextErrors = {};
+    if (!form.name.trim()) nextErrors.name = "Name is required";
+    if (!form.username.trim()) nextErrors.username = "Username is required";
+    if (!form.email.trim()) nextErrors.email = "Email is required";
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      nextErrors.email = "Enter a valid email";
+    }
+    if (!form.password.trim()) nextErrors.password = "Password is required";
+    if (form.password && form.password.length < 6) {
+      nextErrors.password = "Use at least 6 characters";
+    }
+    return nextErrors;
+  };
+
   const submit = async () => {
-    await axios.post("https://blooms-backend-i36k.onrender.com/api/user", form);
-    alert("Registered successfully");
-    navigate("/login");
+    setFormError("");
+    const nextErrors = validate();
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    try {
+      setSubmitting(true);
+      await axios.post(
+        "https://blooms-backend-i36k.onrender.com/api/user",
+        form
+      );
+      navigate("/login");
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        "Registration failed. Please try again.";
+      setFormError(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const fields = [
@@ -104,28 +141,38 @@ export default function Register() {
               <p className="text-sm text-white/60">Fill in your details to join the studio.</p>
             </div>
 
+            {formError && (
+              <div className="mb-4 rounded-2xl border border-rose-200/40 bg-rose-200/10 px-4 py-3 text-sm text-rose-100">
+                {formError}
+              </div>
+            )}
+
             <div className="space-y-4">
               {fields.map((field) => (
-                <label key={field.key} className="block text-sm text-white/70">
-                  {field.label}
-                  <input
-                    type={field.type}
-                    placeholder={field.placeholder}
-                    className="mt-2 w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-[rgba(122,162,255,0.45)]"
-                    onChange={(e) =>
-                      setForm({ ...form, [field.key]: e.target.value })
+                <Input
+                  key={field.key}
+                  label={field.label}
+                  type={field.type}
+                  placeholder={field.placeholder}
+                  value={form[field.key]}
+                  error={errors[field.key]}
+                  onChange={(e) => {
+                    setForm({ ...form, [field.key]: e.target.value });
+                    if (errors[field.key]) {
+                      setErrors({ ...errors, [field.key]: "" });
                     }
-                  />
-                </label>
+                  }}
+                />
               ))}
             </div>
 
-            <button
+            <Button
               onClick={submit}
-              className="mt-6 w-full rounded-2xl bg-[linear-gradient(135deg,var(--sun),var(--flare))] py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_45px_rgba(255,107,107,0.35)] transition hover:-translate-y-0.5"
+              className="mt-6 w-full"
+              disabled={submitting}
             >
-              Register
-            </button>
+              {submitting ? "Creating account..." : "Register"}
+            </Button>
 
             <div className="mt-6 flex items-center justify-between text-xs text-white/60">
               <span>Already have access?</span>

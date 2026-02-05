@@ -3,22 +3,52 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
 
 export default function Login() {
   const [form, setForm] = useState({ username: "", password: "" });
+  const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const validate = () => {
+    const nextErrors = {};
+    if (!form.username.trim()) nextErrors.username = "Username is required";
+    if (!form.password.trim()) nextErrors.password = "Password is required";
+    return nextErrors;
+  };
+
   const submit = async () => {
-    const res = await axios.post(
-      "https://blooms-backend-i36k.onrender.com/api/user/login",
-      form
-    );
+    setFormError("");
+    const nextErrors = validate();
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
 
-    if (!res.data) return alert("Invalid credentials");
+    try {
+      setSubmitting(true);
+      const res = await axios.post(
+        "https://blooms-backend-i36k.onrender.com/api/user/login",
+        form
+      );
 
-    login(res.data);
-    navigate("/admin");
+      if (!res.data) {
+        setFormError("Invalid credentials. Please try again.");
+        return;
+      }
+
+      login(res.data);
+      navigate("/admin");
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        "Login failed. Please check your credentials.";
+      setFormError(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -79,37 +109,43 @@ export default function Login() {
               <p className="text-sm text-white/60">Use your admin credentials to enter.</p>
             </div>
 
-            <div className="space-y-4">
-              <label className="block text-sm text-white/70">
-                Username
-                <input
-                  placeholder="Enter your username"
-                  className="mt-2 w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-[rgba(122,162,255,0.45)]"
-                  onChange={(e) =>
-                    setForm({ ...form, username: e.target.value })
-                  }
-                />
-              </label>
+            {formError && (
+              <div className="mb-4 rounded-2xl border border-rose-200/40 bg-rose-200/10 px-4 py-3 text-sm text-rose-100">
+                {formError}
+              </div>
+            )}
 
-              <label className="block text-sm text-white/70">
-                Password
-                <input
-                  type="password"
-                  placeholder="Enter your password"
-                  className="mt-2 w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-[rgba(122,162,255,0.45)]"
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
-                />
-              </label>
+            <div className="space-y-4">
+              <Input
+                label="Username"
+                placeholder="Enter your username"
+                value={form.username}
+                error={errors.username}
+                onChange={(e) => {
+                  setForm({ ...form, username: e.target.value });
+                  if (errors.username) setErrors({ ...errors, username: "" });
+                }}
+              />
+              <Input
+                label="Password"
+                type="password"
+                placeholder="Enter your password"
+                value={form.password}
+                error={errors.password}
+                onChange={(e) => {
+                  setForm({ ...form, password: e.target.value });
+                  if (errors.password) setErrors({ ...errors, password: "" });
+                }}
+              />
             </div>
 
-            <button
+            <Button
               onClick={submit}
-              className="mt-6 w-full rounded-2xl bg-[linear-gradient(135deg,var(--sun),var(--flare))] py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_45px_rgba(255,107,107,0.35)] transition hover:-translate-y-0.5"
+              className="mt-6 w-full"
+              disabled={submitting}
             >
-              Login
-            </button>
+              {submitting ? "Signing in..." : "Login"}
+            </Button>
 
             <div className="mt-6 flex items-center justify-between text-xs text-white/60">
               <span>Need admin access?</span>

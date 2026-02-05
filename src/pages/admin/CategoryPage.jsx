@@ -6,11 +6,17 @@ import {
   deleteCategory
 } from "../../api/categoryApi";
 import { getSubCategories } from "../../api/subCategoryApi";
+import AdminLayout from "../../components/admin/AdminLayout";
+import Button from "../../components/ui/Button";
+import Input from "../../components/ui/Input";
+import Textarea from "../../components/ui/Textarea";
 
 export default function CategoryPage() {
   const [categories, setCategories] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
   const [openCatId, setOpenCatId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState("");
 
   const [form, setForm] = useState({
     title: "",
@@ -18,39 +24,68 @@ export default function CategoryPage() {
     categoryUrl: ""
   });
   const [editId, setEditId] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     loadAll();
   }, []);
 
   const loadAll = async () => {
-    const [catRes, subRes] = await Promise.all([
-      getCategories(),
-      getSubCategories()
-    ]);
-    setCategories(catRes.data);
-    setSubCategories(subRes.data);
+    setListError("");
+    try {
+      const [catRes, subRes] = await Promise.all([
+        getCategories(),
+        getSubCategories()
+      ]);
+      setCategories(catRes.data);
+      setSubCategories(subRes.data);
+    } catch (err) {
+      console.error("Failed to load categories", err);
+      setListError("Unable to load categories right now.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const validate = () => {
+    const nextErrors = {};
+    if (!form.title.trim()) nextErrors.title = "Title is required";
+    if (!form.desc.trim()) nextErrors.desc = "Description is required";
+    if (form.categoryUrl && !/^https?:\/\//.test(form.categoryUrl)) {
+      nextErrors.categoryUrl = "Use a full image URL";
+    }
+    return nextErrors;
   };
 
   const handleSubmit = async () => {
-    if (!form.title || !form.desc) {
-      alert("Title & Description required");
-      return;
-    }
+    setFormError("");
+    const nextErrors = validate();
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
 
-    if (editId) {
-      await updateCategory({ ...form, id: editId });
-    } else {
-      await createCategory(form);
+    try {
+      setSubmitting(true);
+      if (editId) {
+        await updateCategory({ ...form, id: editId });
+      } else {
+        await createCategory(form);
+      }
+      resetForm();
+      loadAll();
+    } catch (err) {
+      console.error("Category save failed", err);
+      setFormError("Unable to save category. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-
-    resetForm();
-    loadAll();
   };
 
   const resetForm = () => {
     setForm({ title: "", desc: "", categoryUrl: "" });
     setEditId(null);
+    setErrors({});
   };
 
   const handleEdit = (cat) => {
@@ -60,6 +95,7 @@ export default function CategoryPage() {
       desc: cat.desc,
       categoryUrl: cat.categoryUrl || ""
     });
+    setErrors({});
   };
 
   const handleDelete = async (id) => {
@@ -73,161 +109,191 @@ export default function CategoryPage() {
     subCategories.filter((s) => s.categoryId === categoryId);
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-bold mb-8 text-purple-700">
-        Manage Categories
-      </h1>
+    <AdminLayout
+      title="Manage Categories"
+      subtitle="Define the core editorial pillars and keep subcategories organized."
+      actions={
+        <Button size="sm" variant="outline" onClick={resetForm}>
+          Reset Form
+        </Button>
+      }
+    >
+      <div className="grid gap-8 lg:grid-cols-[1.05fr_1.4fr]">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_20px_60px_rgba(8,12,24,0.5)]">
+          <div className="mb-5">
+            <p className="text-xs uppercase tracking-[0.3em] text-white/50">Category Form</p>
+            <h2 className="font-display text-2xl text-white">
+              {editId ? "Update Category" : "Create Category"}
+            </h2>
+            <p className="text-sm text-white/60">
+              Add a clean title, strong description, and optional hero image.
+            </p>
+          </div>
 
-      {/* ================= FORM ================= */}
-      <div className="bg-white p-6 rounded-xl shadow mb-12 max-w-xl">
-        <h2 className="font-semibold mb-4">
-          {editId ? "Update Category" : "Create Category"}
-        </h2>
-
-        <input
-          placeholder="Title"
-          className="w-full mb-3 p-2 border rounded"
-          value={form.title}
-          onChange={(e) =>
-            setForm({ ...form, title: e.target.value })
-          }
-        />
-
-        <textarea
-          placeholder="Description"
-          className="w-full mb-3 p-2 border rounded"
-          value={form.desc}
-          onChange={(e) =>
-            setForm({ ...form, desc: e.target.value })
-          }
-        />
-
-        <input
-          placeholder="Image URL (optional)"
-          className="w-full mb-4 p-2 border rounded"
-          value={form.categoryUrl}
-          onChange={(e) =>
-            setForm({ ...form, categoryUrl: e.target.value })
-          }
-        />
-
-        {form.categoryUrl && (
-          <img
-            src={form.categoryUrl}
-            alt="preview"
-            className="w-32 h-32 object-cover rounded mb-4 border"
-          />
-        )}
-
-        <button
-          onClick={handleSubmit}
-          className="bg-purple-600 text-white px-6 py-2 rounded"
-        >
-          {editId ? "Update" : "Create"}
-        </button>
-
-        {editId && (
-          <button
-            onClick={resetForm}
-            className="ml-4 text-gray-500"
-          >
-            Cancel
-          </button>
-        )}
-      </div>
-
-      {/* ================= CATEGORY LIST ================= */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {categories.map((cat) => {
-          const subs = getSubByCategory(cat.id);
-
-          return (
-            <div
-              key={cat.id}
-              className="bg-white rounded-xl shadow hover:shadow-lg overflow-hidden"
-            >
-              {cat.categoryUrl && (
-                <img
-                  src={cat.categoryUrl}
-                  alt={cat.title}
-                  className="w-full h-40 object-cover"
-                />
-              )}
-
-              <div className="p-5">
-                <h3 className="font-bold text-lg mb-1">
-                  {cat.title}
-                </h3>
-
-                <p className="text-sm text-gray-600 mb-3">
-                  {cat.desc}
-                </p>
-
-                <div className="flex justify-between mb-3">
-                  <button
-                    onClick={() => handleEdit(cat)}
-                    className="text-blue-500 text-sm"
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    onClick={() => handleDelete(cat.id)}
-                    className="text-red-500 text-sm"
-                  >
-                    Delete
-                  </button>
-                </div>
-
-                {/* TOGGLE SUBCATEGORIES */}
-                {subs.length > 0 && (
-                  <button
-                    onClick={() =>
-                      setOpenCatId(
-                        openCatId === cat.id ? null : cat.id
-                      )
-                    }
-                    className="text-purple-600 text-sm font-medium"
-                  >
-                    {openCatId === cat.id
-                      ? "Hide SubCategories ▲"
-                      : `See SubCategories (${subs.length}) ▼`}
-                  </button>
-                )}
-
-                {/* SUBCATEGORY LIST */}
-                {openCatId === cat.id && (
-                  <div className="mt-4 space-y-3 border-t pt-3">
-                    {subs.map((sub) => (
-                      <div
-                        key={sub.id}
-                        className="flex gap-3 items-start"
-                      >
-                        {sub.cUrl && (
-                          <img
-                            src={sub.cUrl}
-                            alt={sub.title}
-                            className="w-12 h-12 rounded object-cover border"
-                          />
-                        )}
-
-                        <div>
-                          <p className="font-semibold text-sm">
-                            {sub.title}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {sub.desc}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+          {formError && (
+            <div className="mb-4 rounded-2xl border border-rose-200/40 bg-rose-200/10 px-4 py-3 text-sm text-rose-100">
+              {formError}
             </div>
-          );
-        })}
+          )}
+
+          <div className="space-y-4">
+            <Input
+              label="Title"
+              placeholder="Category title"
+              value={form.title}
+              error={errors.title}
+              onChange={(e) => {
+                setForm({ ...form, title: e.target.value });
+                if (errors.title) setErrors({ ...errors, title: "" });
+              }}
+            />
+            <Textarea
+              label="Description"
+              placeholder="Describe this category"
+              rows={4}
+              value={form.desc}
+              error={errors.desc}
+              onChange={(e) => {
+                setForm({ ...form, desc: e.target.value });
+                if (errors.desc) setErrors({ ...errors, desc: "" });
+              }}
+            />
+            <Input
+              label="Image URL"
+              placeholder="https://"
+              value={form.categoryUrl}
+              error={errors.categoryUrl}
+              helper="Optional hero image for the category card."
+              onChange={(e) => {
+                setForm({ ...form, categoryUrl: e.target.value });
+                if (errors.categoryUrl) {
+                  setErrors({ ...errors, categoryUrl: "" });
+                }
+              }}
+            />
+          </div>
+
+          {form.categoryUrl && !errors.categoryUrl && (
+            <div className="mt-5 overflow-hidden rounded-2xl border border-white/10">
+              <img
+                src={form.categoryUrl}
+                alt="preview"
+                className="h-40 w-full object-cover"
+              />
+            </div>
+          )}
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button onClick={handleSubmit} disabled={submitting}>
+              {submitting ? "Saving..." : editId ? "Update" : "Create"}
+            </Button>
+            {editId && (
+              <Button variant="ghost" onClick={resetForm}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div>
+          {listError && (
+            <div className="mb-4 rounded-2xl border border-rose-200/40 bg-rose-200/10 px-4 py-3 text-sm text-rose-100">
+              {listError}
+            </div>
+          )}
+
+          {loading ? (
+            <p className="text-sm text-white/60">Loading categories...</p>
+          ) : categories.length === 0 ? (
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-sm text-white/60">
+              No categories yet. Create the first one to start organizing.
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2">
+              {categories.map((cat) => {
+                const subs = getSubByCategory(cat.id);
+
+                return (
+                  <div
+                    key={cat.id}
+                    className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-[0_20px_55px_rgba(8,12,24,0.5)]"
+                  >
+                    {cat.categoryUrl && (
+                      <img
+                        src={cat.categoryUrl}
+                        alt={cat.title}
+                        className="h-40 w-full object-cover"
+                      />
+                    )}
+
+                    <div className="p-5">
+                      <h3 className="font-display text-xl text-white">
+                        {cat.title}
+                      </h3>
+
+                      <p className="mt-2 text-sm text-white/65">
+                        {cat.desc}
+                      </p>
+
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <button
+                          onClick={() => handleEdit(cat)}
+                          className="text-xs font-semibold text-white/80 hover:text-white"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(cat.id)}
+                          className="text-xs font-semibold text-rose-100 hover:text-white"
+                        >
+                          Delete
+                        </button>
+                      </div>
+
+                      {subs.length > 0 && (
+                        <button
+                          onClick={() =>
+                            setOpenCatId(openCatId === cat.id ? null : cat.id)
+                          }
+                          className="mt-4 text-xs font-semibold text-white/80 hover:text-white"
+                        >
+                          {openCatId === cat.id
+                            ? "Hide subcategories"
+                            : `See subcategories (${subs.length})`}
+                        </button>
+                      )}
+
+                      {openCatId === cat.id && (
+                        <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
+                          {subs.map((sub) => (
+                            <div key={sub.id} className="flex gap-3">
+                              {sub.cUrl && (
+                                <img
+                                  src={sub.cUrl}
+                                  alt={sub.title}
+                                  className="h-12 w-12 rounded-2xl object-cover"
+                                />
+                              )}
+                              <div>
+                                <p className="text-sm font-semibold text-white">
+                                  {sub.title}
+                                </p>
+                                <p className="text-xs text-white/60">
+                                  {sub.desc}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

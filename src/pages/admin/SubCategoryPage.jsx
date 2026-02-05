@@ -6,10 +6,18 @@ import {
   deleteSubCategory
 } from "../../api/subCategoryApi";
 import { getCategories } from "../../api/categoryApi";
+import AdminLayout from "../../components/admin/AdminLayout";
+import Button from "../../components/ui/Button";
+import Input from "../../components/ui/Input";
+import Textarea from "../../components/ui/Textarea";
+import Select from "../../components/ui/Select";
 
 export default function SubCategoryPage() {
   const [subCategories, setSubCategories] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState("");
+
   const [form, setForm] = useState({
     title: "",
     desc: "",
@@ -17,39 +25,68 @@ export default function SubCategoryPage() {
     categoryId: ""
   });
   const [editId, setEditId] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     loadAll();
   }, []);
 
   const loadAll = async () => {
-    const [subRes, catRes] = await Promise.all([
-      getSubCategories(),
-      getCategories()
-    ]);
-    setSubCategories(subRes.data);
-    setCategories(catRes.data);
+    setListError("");
+    try {
+      const [subRes, catRes] = await Promise.all([
+        getSubCategories(),
+        getCategories()
+      ]);
+      setSubCategories(subRes.data);
+      setCategories(catRes.data);
+    } catch (err) {
+      console.error("Failed to load subcategories", err);
+      setListError("Unable to load subcategories right now.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const validate = () => {
+    const nextErrors = {};
+    if (!form.title.trim()) nextErrors.title = "Title is required";
+    if (!form.categoryId) nextErrors.categoryId = "Pick a category";
+    if (form.cUrl && !/^https?:\/\//.test(form.cUrl)) {
+      nextErrors.cUrl = "Use a full image URL";
+    }
+    return nextErrors;
   };
 
   const handleSubmit = async () => {
-    if (!form.title || !form.categoryId) {
-      alert("Title & Category required");
-      return;
-    }
+    setFormError("");
+    const nextErrors = validate();
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
 
-    if (editId) {
-      await updateSubCategory({ ...form, id: editId });
-    } else {
-      await createSubCategory(form);
+    try {
+      setSubmitting(true);
+      if (editId) {
+        await updateSubCategory({ ...form, id: editId });
+      } else {
+        await createSubCategory(form);
+      }
+      resetForm();
+      loadAll();
+    } catch (err) {
+      console.error("Subcategory save failed", err);
+      setFormError("Unable to save subcategory. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-
-    resetForm();
-    loadAll();
   };
 
   const resetForm = () => {
     setForm({ title: "", desc: "", cUrl: "", categoryId: "" });
     setEditId(null);
+    setErrors({});
   };
 
   const handleEdit = (sub) => {
@@ -60,6 +97,7 @@ export default function SubCategoryPage() {
       cUrl: sub.cUrl || "",
       categoryId: sub.categoryId
     });
+    setErrors({});
   };
 
   const handleDelete = async (id) => {
@@ -70,131 +108,164 @@ export default function SubCategoryPage() {
   };
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-bold mb-6 text-purple-700">
-        Manage SubCategories
-      </h1>
-
-      {/* ===== FORM ===== */}
-      <div className="bg-white p-6 rounded-xl shadow mb-10 max-w-xl">
-        <h2 className="font-semibold mb-4">
-          {editId ? "Update SubCategory" : "Create SubCategory"}
-        </h2>
-
-        <input
-          placeholder="Title"
-          className="w-full mb-3 p-2 border rounded"
-          value={form.title}
-          onChange={(e) =>
-            setForm({ ...form, title: e.target.value })
-          }
-        />
-
-        <textarea
-          placeholder="Description"
-          className="w-full mb-3 p-2 border rounded"
-          value={form.desc}
-          onChange={(e) =>
-            setForm({ ...form, desc: e.target.value })
-          }
-        />
-
-        <select
-          className="w-full mb-3 p-2 border rounded"
-          value={form.categoryId}
-          onChange={(e) =>
-            setForm({ ...form, categoryId: e.target.value })
-          }
-        >
-          <option value="">Select Category</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.title}
-            </option>
-          ))}
-        </select>
-
-        <input
-          placeholder="Image URL (optional)"
-          className="w-full mb-4 p-2 border rounded"
-          value={form.cUrl}
-          onChange={(e) =>
-            setForm({ ...form, cUrl: e.target.value })
-          }
-        />
-
-        {/* IMAGE PREVIEW */}
-        {form.cUrl && (
-          <img
-            src={form.cUrl}
-            alt="preview"
-            className="w-32 h-32 object-cover rounded mb-4 border"
-          />
-        )}
-
-        <button
-          onClick={handleSubmit}
-          className="bg-purple-600 text-white px-6 py-2 rounded"
-        >
-          {editId ? "Update" : "Create"}
-        </button>
-
-        {editId && (
-          <button
-            onClick={resetForm}
-            className="ml-4 text-gray-500"
-          >
-            Cancel
-          </button>
-        )}
-      </div>
-
-      {/* ===== LIST ===== */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {subCategories.map((sub) => (
-          <div
-            key={sub.id}
-            className="bg-white p-5 rounded-xl shadow hover:shadow-lg"
-          >
-            {sub.cUrl && (
-              <img
-                src={sub.cUrl}
-                alt={sub.title}
-                className="w-full h-40 object-cover rounded mb-4"
-              />
-            )}
-
-            <h3 className="font-bold text-lg mb-1">
-              {sub.title}
-            </h3>
-
-            <p className="text-sm text-gray-600 mb-2">
-              {sub.desc}
+    <AdminLayout
+      title="Manage SubCategories"
+      subtitle="Add focus topics under each category to keep content discoverable."
+      actions={
+        <Button size="sm" variant="outline" onClick={resetForm}>
+          Reset Form
+        </Button>
+      }
+    >
+      <div className="grid gap-8 lg:grid-cols-[1.05fr_1.4fr]">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_20px_60px_rgba(8,12,24,0.5)]">
+          <div className="mb-5">
+            <p className="text-xs uppercase tracking-[0.3em] text-white/50">SubCategory Form</p>
+            <h2 className="font-display text-2xl text-white">
+              {editId ? "Update SubCategory" : "Create SubCategory"}
+            </h2>
+            <p className="text-sm text-white/60">
+              Group related topics and keep the editorial structure tight.
             </p>
-            <img src="sub.image" alt="" />
-
-            <p className="text-xs text-gray-500 mb-3">
-              Category: {sub.categoryName}
-            </p>
-
-            <div className="flex justify-between">
-              <button
-                onClick={() => handleEdit(sub)}
-                className="text-blue-500 text-sm"
-              >
-                Edit
-              </button>
-
-              <button
-                onClick={() => handleDelete(sub.id)}
-                className="text-red-500 text-sm"
-              >
-                Delete
-              </button>
-            </div>
           </div>
-        ))}
+
+          {formError && (
+            <div className="mb-4 rounded-2xl border border-rose-200/40 bg-rose-200/10 px-4 py-3 text-sm text-rose-100">
+              {formError}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <Input
+              label="Title"
+              placeholder="SubCategory title"
+              value={form.title}
+              error={errors.title}
+              onChange={(e) => {
+                setForm({ ...form, title: e.target.value });
+                if (errors.title) setErrors({ ...errors, title: "" });
+              }}
+            />
+            <Textarea
+              label="Description"
+              placeholder="Describe this subcategory"
+              rows={4}
+              value={form.desc}
+              onChange={(e) => setForm({ ...form, desc: e.target.value })}
+            />
+            <Select
+              label="Category"
+              value={form.categoryId}
+              error={errors.categoryId}
+              onChange={(e) => {
+                setForm({ ...form, categoryId: e.target.value });
+                if (errors.categoryId) setErrors({ ...errors, categoryId: "" });
+              }}
+            >
+              <option value="">Select Category</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </Select>
+            <Input
+              label="Image URL"
+              placeholder="https://"
+              value={form.cUrl}
+              error={errors.cUrl}
+              helper="Optional image for the subcategory card."
+              onChange={(e) => {
+                setForm({ ...form, cUrl: e.target.value });
+                if (errors.cUrl) setErrors({ ...errors, cUrl: "" });
+              }}
+            />
+          </div>
+
+          {form.cUrl && !errors.cUrl && (
+            <div className="mt-5 overflow-hidden rounded-2xl border border-white/10">
+              <img
+                src={form.cUrl}
+                alt="preview"
+                className="h-40 w-full object-cover"
+              />
+            </div>
+          )}
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button onClick={handleSubmit} disabled={submitting}>
+              {submitting ? "Saving..." : editId ? "Update" : "Create"}
+            </Button>
+            {editId && (
+              <Button variant="ghost" onClick={resetForm}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div>
+          {listError && (
+            <div className="mb-4 rounded-2xl border border-rose-200/40 bg-rose-200/10 px-4 py-3 text-sm text-rose-100">
+              {listError}
+            </div>
+          )}
+
+          {loading ? (
+            <p className="text-sm text-white/60">Loading subcategories...</p>
+          ) : subCategories.length === 0 ? (
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-sm text-white/60">
+              No subcategories yet. Create the first one to refine topics.
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2">
+              {subCategories.map((sub) => (
+                <div
+                  key={sub.id}
+                  className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-[0_20px_55px_rgba(8,12,24,0.5)]"
+                >
+                  {sub.cUrl && (
+                    <img
+                      src={sub.cUrl}
+                      alt={sub.title}
+                      className="h-40 w-full object-cover"
+                    />
+                  )}
+
+                  <div className="p-5">
+                    <h3 className="font-display text-xl text-white">
+                      {sub.title}
+                    </h3>
+
+                    <p className="mt-2 text-sm text-white/65">
+                      {sub.desc}
+                    </p>
+
+                    <p className="mt-3 text-xs text-white/50">
+                      Category: {sub.categoryName || "Unassigned"}
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        onClick={() => handleEdit(sub)}
+                        className="text-xs font-semibold text-white/80 hover:text-white"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(sub.id)}
+                        className="text-xs font-semibold text-rose-100 hover:text-white"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }
