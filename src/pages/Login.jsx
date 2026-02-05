@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
@@ -21,33 +22,106 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 w-96 rounded-xl shadow">
-        <h2 className="text-2xl font-bold mb-4">Admin Login</h2>
+    <div className="relative min-h-screen overflow-hidden bg-[color:var(--ink)] text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(122,162,255,0.22),transparent_50%),radial-gradient(circle_at_12%_80%,rgba(58,229,199,0.18),transparent_45%),radial-gradient(circle_at_88%_70%,rgba(255,107,107,0.24),transparent_55%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(0deg,transparent_24%,rgba(255,255,255,0.35)_25%,rgba(255,255,255,0.35)_26%,transparent_27%,transparent_74%,rgba(255,255,255,0.35)_75%,rgba(255,255,255,0.35)_76%,transparent_77%),linear-gradient(90deg,transparent_24%,rgba(255,255,255,0.35)_25%,rgba(255,255,255,0.35)_26%,transparent_27%,transparent_74%,rgba(255,255,255,0.35)_75%,rgba(255,255,255,0.35)_76%,transparent_77%)] [background-size:44px_44px]" />
+      <div className="pointer-events-none absolute -top-40 right-[-10%] h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle_at_30%_30%,rgba(255,179,71,0.55),transparent_65%)] blur-3xl" />
+      <div className="pointer-events-none absolute bottom-[-25%] left-[-8%] h-[380px] w-[380px] rounded-full bg-[radial-gradient(circle_at_30%_30%,rgba(122,162,255,0.5),transparent_65%)] blur-3xl" />
 
-        <input
-          placeholder="Username"
-          className="w-full mb-3 p-2 border rounded"
-          onChange={(e) =>
-            setForm({ ...form, username: e.target.value })
-          }
-        />
+      <button
+        onClick={() => navigate("/")}
+        className="absolute left-6 top-6 z-10 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white/70 transition hover:border-white/40 hover:text-white"
+      >
+        Back to home
+      </button>
 
-        <input
-          type="password"
-          placeholder="Password"
-          className="w-full mb-4 p-2 border rounded"
-          onChange={(e) =>
-            setForm({ ...form, password: e.target.value })
-          }
-        />
-
-        <button
-          onClick={submit}
-          className="w-full bg-purple-600 text-white py-2 rounded"
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col items-center justify-center gap-12 px-6 py-16 lg:flex-row">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="flex-1 space-y-6"
         >
-          Login
-        </button>
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white/70">
+            Secure Access
+            <span className="h-2 w-2 rounded-full bg-[color:var(--mint)] shadow-[0_0_12px_rgba(58,229,199,0.8)]" />
+          </span>
+          <h1 className="font-display text-4xl leading-tight sm:text-5xl">
+            Welcome back to Blooms.
+            <span className="block text-white/70">Keep the editorial flow moving.</span>
+          </h1>
+          <p className="max-w-xl text-base text-white/70 sm:text-lg">
+            Review scheduled drops, polish drafts, and publish with speed. Your
+            studio is already warmed up.
+          </p>
+          <div className="grid max-w-md grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.2em] text-white/50">Drafts</p>
+              <p className="text-lg font-semibold text-white">128</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.2em] text-white/50">Live</p>
+              <p className="text-lg font-semibold text-white">62</p>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 28 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
+          className="w-full max-w-md"
+        >
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_30px_80px_rgba(3,8,20,0.65)] backdrop-blur">
+            <div className="mb-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-white/50">Admin Login</p>
+              <h2 className="font-display text-2xl text-white">Sign in</h2>
+              <p className="text-sm text-white/60">Use your admin credentials to enter.</p>
+            </div>
+
+            <div className="space-y-4">
+              <label className="block text-sm text-white/70">
+                Username
+                <input
+                  placeholder="Enter your username"
+                  className="mt-2 w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-[rgba(122,162,255,0.45)]"
+                  onChange={(e) =>
+                    setForm({ ...form, username: e.target.value })
+                  }
+                />
+              </label>
+
+              <label className="block text-sm text-white/70">
+                Password
+                <input
+                  type="password"
+                  placeholder="Enter your password"
+                  className="mt-2 w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-[rgba(122,162,255,0.45)]"
+                  onChange={(e) =>
+                    setForm({ ...form, password: e.target.value })
+                  }
+                />
+              </label>
+            </div>
+
+            <button
+              onClick={submit}
+              className="mt-6 w-full rounded-2xl bg-[linear-gradient(135deg,var(--sun),var(--flare))] py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_45px_rgba(255,107,107,0.35)] transition hover:-translate-y-0.5"
+            >
+              Login
+            </button>
+
+            <div className="mt-6 flex items-center justify-between text-xs text-white/60">
+              <span>Need admin access?</span>
+              <button
+                onClick={() => navigate("/register")}
+                className="font-semibold text-white transition hover:text-white/90"
+              >
+                Create account
+              </button>
+            </div>
+          </div>
+        </motion.div>
       </div>
     </div>
   );
