@@ -3,39 +3,57 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
 import Button from "../../components/ui/Button";
+import { useAuth } from "../../context/AuthContext";
 
-import { getBlogs } from "../../api/blogApi";
-import { getCategories } from "../../api/categoryApi";
-import { getSubCategories } from "../../api/subCategoryApi";
+import { getBlogs, getBlogsByStatus } from "../../api/blogApi";
+import { getCategories, getCategoriesByStatus } from "../../api/categoryApi";
+import {
+  getSubCategories,
+  getSubCategoriesByStatus
+} from "../../api/subCategoryApi";
+import { getReviewNotifications } from "../../api/notificationApi";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [stats, setStats] = useState({
     blogs: 0,
     categories: 0,
-    subCategories: 0
+    subCategories: 0,
+    pendingCategories: 0,
+    pendingSubCategories: 0,
+    pendingBlogs: 0
   });
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     loadStats();
-  }, []);
+  }, [isAdmin]);
 
   const loadStats = async () => {
     setError("");
     try {
-      const [blogRes, catRes, subCatRes] = await Promise.all([
+      const [blogRes, catRes, subCatRes, pendingCatRes, pendingSubRes, pendingBlogRes, notificationRes] = await Promise.all([
         getBlogs(),
         getCategories(),
-        getSubCategories()
+        getSubCategories(),
+        isAdmin ? getCategoriesByStatus("In Review") : Promise.resolve({ data: [] }),
+        isAdmin ? getSubCategoriesByStatus("In Review") : Promise.resolve({ data: [] }),
+        isAdmin ? getBlogsByStatus("In Review") : Promise.resolve({ data: [] }),
+        getReviewNotifications().catch(() => ({ data: [] }))
       ]);
 
       setStats({
         blogs: blogRes.data.length,
         categories: catRes.data.length,
-        subCategories: subCatRes.data.length
+        subCategories: subCatRes.data.length,
+        pendingCategories: pendingCatRes.data.length,
+        pendingSubCategories: pendingSubRes.data.length,
+        pendingBlogs: pendingBlogRes.data.length
       });
+      setNotifications(notificationRes.data || []);
     } catch (err) {
       console.error("Failed to load dashboard stats", err);
       setError("Unable to load studio stats right now.");
@@ -46,8 +64,8 @@ export default function Dashboard() {
 
   return (
     <AdminLayout
-      title="Admin Dashboard"
-      subtitle="Track the publishing pulse across blogs, categories, and subcategories."
+      title="Dashboard"
+      subtitle="Track publishing, moderation, and review updates in one place."
       actions={
         <Button size="sm" onClick={() => navigate("/blogs")}>
           Create Blog
@@ -60,32 +78,66 @@ export default function Dashboard() {
         </div>
       )}
 
+      {notifications.length > 0 && (
+        <div className="mb-6 rounded-3xl border border-sky-200/25 bg-sky-200/10 p-5">
+          <h3 className="font-display text-xl text-white">Review Notifications</h3>
+          <div className="mt-3 space-y-2">
+            {notifications.slice(0, 6).map((note) => (
+              <p key={`${note.type}-${note.resourceId}`} className="text-sm text-white/80">
+                {note.message}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-sm text-white/60">Loading studio stats...</p>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <StatCard title="Total Blogs" value={stats.blogs} accent="var(--sun)" />
-          <StatCard title="Categories" value={stats.categories} accent="var(--sky)" />
-          <StatCard title="SubCategories" value={stats.subCategories} accent="var(--mint)" />
+          <StatCard title="Published Blogs" value={stats.blogs} accent="var(--sun)" />
+          <StatCard title="Published Categories" value={stats.categories} accent="var(--sky)" />
+          <StatCard title="Published SubCategories" value={stats.subCategories} accent="var(--mint)" />
+          {isAdmin && (
+            <StatCard title="Pending Categories" value={stats.pendingCategories} accent="var(--flare)" />
+          )}
+          {isAdmin && (
+            <StatCard title="Pending SubCategories" value={stats.pendingSubCategories} accent="var(--flare)" />
+          )}
+          {isAdmin && (
+            <StatCard title="Pending Blogs" value={stats.pendingBlogs} accent="var(--flare)" />
+          )}
         </div>
       )}
 
       <div className="mt-10 grid gap-6 md:grid-cols-3">
         <QuickCard
-          title="Create or Manage Blogs"
-          body="Jump into drafts, publish new posts, and keep your editorial schedule on track."
+          title="Search User Content"
+          body="Find any username and view their categories, subcategories, and blogs."
+          action={() => navigate("/search")}
+        />
+        <QuickCard
+          title="Manage Blogs"
+          body="Create new blogs, moderate pending submissions, and delete what you own."
           action={() => navigate("/blogs")}
         />
         <QuickCard
-          title="Structure Categories"
-          body="Shape the core themes that power your newsroom hierarchy."
+          title="Manage Categories"
+          body="Review category submissions and keep taxonomy clean and approved."
           action={() => navigate("/categories")}
         />
         <QuickCard
-          title="Refine SubCategories"
-          body="Keep granular topics aligned with the main editorial pillars."
+          title="Manage SubCategories"
+          body="Moderate subcategory queue and control nested content structure."
           action={() => navigate("/subcategories")}
         />
+        {isAdmin && (
+          <QuickCard
+            title="Manage Users"
+            body="Delete user accounts and trigger cascade cleanup of their content."
+            action={() => navigate("/users")}
+          />
+        )}
       </div>
     </AdminLayout>
   );

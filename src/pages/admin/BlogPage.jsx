@@ -2,8 +2,12 @@ import { useEffect, useState } from "react";
 import {
   createBlog,
   getBlogs,
+  getMyBlogs,
+  getBlogsByStatus,
   deleteBlog,
-  getCategoryTree
+  getCategoryTree,
+  publishBlog,
+  rejectBlog
 } from "../../api/blogApi";
 import { useAuth } from "../../context/AuthContext";
 import AdminLayout from "../../components/admin/AdminLayout";
@@ -12,9 +16,11 @@ import Input from "../../components/ui/Input";
 import Textarea from "../../components/ui/Textarea";
 
 export default function BlogPage() {
-  const { user } = useAuth();
+  const { isAdmin } = useAuth();
 
-  const [blogs, setBlogs] = useState([]);
+  const [publishedBlogs, setPublishedBlogs] = useState([]);
+  const [myBlogs, setMyBlogs] = useState([]);
+  const [pendingBlogs, setPendingBlogs] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState("");
@@ -27,21 +33,29 @@ export default function BlogPage() {
   });
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState("");
+  const [formMessage, setFormMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [isAdmin]);
 
   const load = async () => {
     setLoading(true);
     setListError("");
     try {
-      const [blogRes, catRes] = await Promise.all([
+      const [publishedRes, mineRes, pendingRes, catRes] = await Promise.all([
         getBlogs(),
+        getMyBlogs(),
+        isAdmin
+          ? getBlogsByStatus("In Review")
+          : Promise.resolve({ data: [] }),
         getCategoryTree()
       ]);
-      setBlogs(blogRes.data);
+
+      setPublishedBlogs(publishedRes.data || []);
+      setMyBlogs(mineRes.data || []);
+      setPendingBlogs(pendingRes.data || []);
       setCategories(catRes.data || []);
     } catch (err) {
       console.error("Failed to load blogs", err);
@@ -85,17 +99,16 @@ export default function BlogPage() {
 
   const submit = async () => {
     setFormError("");
+    setFormMessage("");
+
     const nextErrors = validate();
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
     try {
       setSubmitting(true);
-      await createBlog({
-        ...form,
-        authorId: user.id
-      });
-
+      await createBlog(form);
+      setFormMessage("Blog submitted for review.");
       resetForm();
       load();
     } catch (err) {
@@ -123,10 +136,94 @@ export default function BlogPage() {
     }
   };
 
+  const handlePublish = async (id) => {
+    try {
+      await publishBlog(id);
+      await load();
+    } catch (err) {
+      console.error("Failed to publish blog", err);
+      setListError("Failed to publish blog.");
+    }
+  };
+
+  const handleReject = async (id) => {
+    try {
+      await rejectBlog(id);
+      await load();
+    } catch (err) {
+      console.error("Failed to reject blog", err);
+      setListError("Failed to reject blog.");
+    }
+  };
+
+  const renderBlogsGrid = ({
+    title,
+    subtitle,
+    blogs,
+    showAuthor,
+    allowDelete,
+    emptyMessage
+  }) => (
+    <div className="mt-8">
+      <h2 className="font-display text-2xl text-white">{title}</h2>
+      <p className="mt-2 text-sm text-white/60">{subtitle}</p>
+
+      {blogs.length === 0 ? (
+        <div className="mt-4 rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-sm text-white/60">
+          {emptyMessage}
+        </div>
+      ) : (
+        <div className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {blogs.map((b) => (
+            <div
+              key={b.id}
+              className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-[0_18px_50px_rgba(8,12,24,0.5)]"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-display text-lg text-white">{b.title}</h3>
+                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/80">
+                  {b.status || "Published"}
+                </span>
+              </div>
+
+              <p className="mt-2 text-sm text-white/65">{b.description}</p>
+
+              {showAuthor && (
+                <p className="mt-3 text-xs text-white/50">
+                  Created by: {b.authorName || "Unknown"}
+                </p>
+              )}
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {(b.categoryMappings || []).map((m, i) => (
+                  <span
+                    key={i}
+                    className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-white/70"
+                  >
+                    {m.subCategoryName}
+                  </span>
+                ))}
+              </div>
+
+              {allowDelete && (
+                <button
+                  onClick={() => removeBlog(b.id)}
+                  className="mt-4 text-xs font-semibold text-rose-100 hover:text-white"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <AdminLayout
       title="Manage Blogs"
-      subtitle="Publish new stories, map them to categories, and keep the studio pipeline flowing."
+      subtitle="Create blogs, moderate pending submissions, and manage ownership deletes."
       actions={
         <Button size="sm" variant="outline" onClick={resetForm}>
           Reset Draft
@@ -139,13 +236,19 @@ export default function BlogPage() {
             <p className="text-xs uppercase tracking-[0.3em] text-white/50">Create Blog</p>
             <h2 className="font-display text-2xl text-white">New Story</h2>
             <p className="text-sm text-white/60">
-              Add a title, summary, content, and map it to the right subcategories.
+              New and edited blogs are submitted for admin review.
             </p>
           </div>
 
           {formError && (
             <div className="mb-4 rounded-2xl border border-rose-200/40 bg-rose-200/10 px-4 py-3 text-sm text-rose-100">
               {formError}
+            </div>
+          )}
+
+          {formMessage && (
+            <div className="mb-4 rounded-2xl border border-emerald-200/40 bg-emerald-200/10 px-4 py-3 text-sm text-emerald-100">
+              {formMessage}
             </div>
           )}
 
@@ -187,7 +290,7 @@ export default function BlogPage() {
           <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
             <h3 className="font-display text-lg text-white">Categories & SubCategories</h3>
             <p className="mt-1 text-xs text-white/60">
-              Tag at least one subcategory for accurate placement.
+              Choose subcategories for proper content mapping.
             </p>
 
             <div className="mt-4 space-y-4">
@@ -235,7 +338,7 @@ export default function BlogPage() {
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Button onClick={submit} disabled={submitting}>
-              {submitting ? "Publishing..." : "Publish Blog"}
+              {submitting ? "Submitting..." : "Submit For Review"}
             </Button>
             <Button variant="ghost" onClick={resetForm}>
               Clear Draft
@@ -244,62 +347,79 @@ export default function BlogPage() {
         </div>
 
         <div>
-          <h2 className="font-display text-2xl text-white">Published Blogs</h2>
-          <p className="mt-2 text-sm text-white/60">
-            Track what is live and remove outdated stories when needed.
-          </p>
-
           {listError && (
-            <div className="mt-4 rounded-2xl border border-rose-200/40 bg-rose-200/10 px-4 py-3 text-sm text-rose-100">
+            <div className="mb-4 rounded-2xl border border-rose-200/40 bg-rose-200/10 px-4 py-3 text-sm text-rose-100">
               {listError}
             </div>
           )}
 
           {loading ? (
-            <p className="mt-4 text-sm text-white/60">Loading blogs...</p>
-          ) : blogs.length === 0 ? (
-            <div className="mt-4 rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-sm text-white/60">
-              No published blogs yet. Create the first story above.
-            </div>
+            <p className="text-sm text-white/60">Loading blogs...</p>
           ) : (
-            <div className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {blogs.map((b) => (
-                <div
-                  key={b.id}
-                  className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-[0_18px_50px_rgba(8,12,24,0.5)]"
-                >
-                  <h3 className="font-display text-lg text-white">
-                    {b.title}
-                  </h3>
-
-                  <p className="mt-2 text-sm text-white/65">
-                    {b.description}
+            <>
+              {isAdmin && (
+                <div>
+                  <h2 className="font-display text-2xl text-white">
+                    Pending Review ({pendingBlogs.length})
+                  </h2>
+                  <p className="mt-2 text-sm text-white/60">
+                    User blogs waiting for moderation.
                   </p>
 
-                  <p className="mt-3 text-xs text-white/50">
-                    by {b.authorName}
-                  </p>
+                  {pendingBlogs.length === 0 ? (
+                    <div className="mt-4 rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-sm text-white/60">
+                      No pending blogs right now.
+                    </div>
+                  ) : (
+                    <div className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                      {pendingBlogs.map((b) => (
+                        <div
+                          key={b.id}
+                          className="rounded-3xl border border-amber-100/20 bg-amber-200/5 p-5 shadow-[0_18px_50px_rgba(8,12,24,0.5)]"
+                        >
+                          <h3 className="font-display text-lg text-white">{b.title}</h3>
+                          <p className="mt-2 text-sm text-white/65">{b.description}</p>
+                          <p className="mt-3 text-xs text-white/50">
+                            Created by: {b.authorName || "Unknown"}
+                          </p>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {b.categoryMappings.map((m, i) => (
-                      <span
-                        key={i}
-                        className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-white/70"
-                      >
-                        {m.subCategoryName}
-                      </span>
-                    ))}
-                  </div>
-
-                  <button
-                    onClick={() => removeBlog(b.id)}
-                    className="mt-4 text-xs font-semibold text-rose-100 hover:text-white"
-                  >
-                    Delete
-                  </button>
+                          <div className="mt-4 flex gap-3">
+                            <Button size="sm" onClick={() => handlePublish(b.id)}>
+                              Publish
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              onClick={() => handleReject(b.id)}
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              )}
+
+              {renderBlogsGrid({
+                title: "My Blogs",
+                subtitle: "You can delete your own blogs anytime.",
+                blogs: myBlogs,
+                showAuthor: false,
+                allowDelete: true,
+                emptyMessage: "You have not created any blogs yet."
+              })}
+
+              {renderBlogsGrid({
+                title: "Published Blogs",
+                subtitle: "Publicly visible approved blogs.",
+                blogs: publishedBlogs,
+                showAuthor: true,
+                allowDelete: isAdmin,
+                emptyMessage: "No published blogs found."
+              })}
+            </>
           )}
         </div>
       </div>

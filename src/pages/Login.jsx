@@ -1,10 +1,10 @@
 import { useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
+import { loginUser } from "../api/authApi";
 
 export default function Login() {
   const [form, setForm] = useState({ username: "", password: "" });
@@ -29,12 +29,9 @@ export default function Login() {
 
     try {
       setSubmitting(true);
-      const res = await axios.post(
-        "https://blooms-backend-i36k.onrender.com/api/user/login",
-        form
-      );
+      const res = await loginUser(form);
 
-      if (!res.data) {
+      if (!res.data?.token || !res.data?.user) {
         setFormError("Invalid credentials. Please try again.");
         return;
       }

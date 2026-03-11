@@ -1,15 +1,27 @@
-import axios from "axios";
+import httpClient from "./httpClient";
 
-const BASE = "https://blooms-backend-i36k.onrender.com/api/subcategory";
+const BASE = "/api/subcategory";
 
 export const getSubCategories = () =>
-  axios.get(`${BASE}/subcategories`);
+  httpClient.get(`${BASE}/subcategories`);
+
+export const getMySubCategories = () =>
+  httpClient.get(`${BASE}/mine`);
+
+export const getSubCategoriesByStatus = (status) =>
+  httpClient.get(`${BASE}/moderation/${status}`);
 
 export const createSubCategory = (data) =>
-  axios.post(BASE, data);
+  httpClient.post(BASE, data);
 
 export const updateSubCategory = (data) =>
-  axios.put(BASE, data);
+  httpClient.put(BASE, data);
 
 export const deleteSubCategory = (id) =>
-  axios.delete(`${BASE}?subCategoryId=${id}`);
+  httpClient.delete(`${BASE}?subCategoryId=${id}`);
+
+export const publishSubCategory = (id) =>
+  httpClient.put(`${BASE}/${id}/publish`);
+
+export const rejectSubCategory = (id) =>
+  httpClient.put(`${BASE}/${id}/reject`);

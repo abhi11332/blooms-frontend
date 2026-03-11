@@ -1,12 +1,17 @@
-import axios from "axios";
+import httpClient from "./httpClient";
 
-const BASE = "https://blooms-backend-i36k.onrender.com/api/blog";
+const BASE = "/api/blog";
 
-export const getBlogs = () => axios.get(`${BASE}/all`);
-export const createBlog = (data) => axios.post(BASE, data);
-export const updateBlog = (data) => axios.put(BASE, data);
+export const getBlogs = () => httpClient.get(`${BASE}/all`);
+export const getMyBlogs = () => httpClient.get(`${BASE}/mine`);
+export const getBlogsByStatus = (status) =>
+  httpClient.get(`${BASE}/moderation/${status}`);
+export const createBlog = (data) => httpClient.post(BASE, data);
+export const updateBlog = (data) => httpClient.put(BASE, data);
 export const deleteBlog = (id) =>
-  axios.delete(`${BASE}?blogId=${id}`);
+  httpClient.delete(`${BASE}?blogId=${id}`);
+export const publishBlog = (id) => httpClient.put(`${BASE}/${id}/publish`);
+export const rejectBlog = (id) => httpClient.put(`${BASE}/${id}/reject`);
 
 export const getCategoryTree = () =>
-  axios.get(`${BASE}/categories`);
+  httpClient.get(`${BASE}/categories`);

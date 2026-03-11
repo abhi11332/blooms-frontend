@@ -9,6 +9,8 @@ import Dashboard from "./pages/admin/Dashboard";
 import CategoryPage from "./pages/admin/CategoryPage";
 import SubCategoryPage from "./pages/admin/SubCategoryPage";
 import BlogPage from "./pages/admin/BlogPage";
+import UsersPage from "./pages/admin/UsersPage";
+import UserSearchPage from "./pages/admin/UserSearchPage";
 
 export default function App() {
   return (
@@ -33,6 +35,14 @@ export default function App() {
 
           <Route path="/blogs" element={
             <ProtectedRoute><BlogPage /></ProtectedRoute>
+          } />
+
+          <Route path="/users" element={
+            <ProtectedRoute><UsersPage /></ProtectedRoute>
+          } />
+
+          <Route path="/search" element={
+            <ProtectedRoute><UserSearchPage /></ProtectedRoute>
           } />
         </Routes>
       </AuthProvider>

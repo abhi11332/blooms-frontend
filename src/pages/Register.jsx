@@ -1,9 +1,10 @@
 import { useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
+import { useAuth } from "../context/AuthContext";
+import { registerUser } from "../api/authApi";
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -16,6 +17,7 @@ export default function Register() {
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const validate = () => {
@@ -41,15 +43,19 @@ export default function Register() {
 
     try {
       setSubmitting(true);
-      await axios.post(
-        "https://blooms-backend-i36k.onrender.com/api/user",
-        form
-      );
-      navigate("/login");
+      const res = await registerUser(form);
+      if (!res.data?.token || !res.data?.user) {
+        setFormError("Registration failed. Please try again.");
+        return;
+      }
+      login(res.data);
+      navigate("/admin");
     } catch (err) {
       const message =
         err?.response?.data?.message ||
-        "Registration failed. Please try again.";
+        (err?.response?.status === 409
+          ? "Username or email already exists."
+          : "Registration failed. Please try again.");
       setFormError(message);
     } finally {
       setSubmitting(false);

@@ -2,8 +2,9 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import Button from "../ui/Button";
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS = [
   { to: "/admin", label: "Dashboard", icon: "D" },
+  { to: "/search", label: "Search", icon: "F" },
   { to: "/blogs", label: "Blogs", icon: "B" },
   { to: "/categories", label: "Categories", icon: "C" },
   { to: "/subcategories", label: "SubCategories", icon: "S" }
@@ -11,7 +12,10 @@ const NAV_ITEMS = [
 
 export default function AdminLayout({ title, subtitle, children, actions }) {
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, isAdmin } = useAuth();
+  const navItems = isAdmin
+    ? [...BASE_NAV_ITEMS, { to: "/users", label: "Users", icon: "U" }]
+    : BASE_NAV_ITEMS;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[color:var(--ink)] text-white">
@@ -31,7 +35,7 @@ export default function AdminLayout({ title, subtitle, children, actions }) {
           </div>
 
           <nav className="mt-10 space-y-2">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const active = location.pathname === item.to;
               return (
                 <Link
@@ -87,7 +91,7 @@ export default function AdminLayout({ title, subtitle, children, actions }) {
           </header>
 
           <nav className="mt-5 flex flex-wrap gap-3 lg:hidden">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const active = location.pathname === item.to;
               return (
                 <Link

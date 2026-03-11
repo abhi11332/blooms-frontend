@@ -1,19 +1,27 @@
-import axios from "axios";
+import httpClient from "./httpClient";
 
-const BASE = "https://blooms-backend-i36k.onrender.com/api/category";
+const BASE = "/api/category";
 
-// GET all categories
-export const getCategories = () => 
-  axios.get(`${BASE}/all`);
+export const getCategories = () =>
+  httpClient.get(`${BASE}/all`);
 
-// CREATE category
-export const createCategory = (data) => 
-  axios.post(BASE, data);
+export const getMyCategories = () =>
+  httpClient.get(`${BASE}/mine`);
 
-// UPDATE category
-export const updateCategory = (data) => 
-  axios.put(BASE, data);
+export const getCategoriesByStatus = (status) =>
+  httpClient.get(`${BASE}/moderation/${status}`);
 
-// DELETE category
-export const deleteCategory = (id) => 
-  axios.delete(`${BASE}?categoryId=${id}`);
+export const createCategory = (data) =>
+  httpClient.post(BASE, data);
+
+export const updateCategory = (data) =>
+  httpClient.put(BASE, data);
+
+export const deleteCategory = (id) =>
+  httpClient.delete(`${BASE}?categoryId=${id}`);
+
+export const publishCategory = (id) =>
+  httpClient.put(`${BASE}/${id}/publish`);
+
+export const rejectCategory = (id) =>
+  httpClient.put(`${BASE}/${id}/reject`);
