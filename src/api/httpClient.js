@@ -1,7 +1,10 @@
 import axios from "axios";
 
 const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.PROD
+    ? "https://blooms-backend-i36k.onrender.com"
+    : "http://localhost:8080");
 
 const httpClient = axios.create({
   baseURL: API_BASE

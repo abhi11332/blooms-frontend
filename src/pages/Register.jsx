@@ -51,6 +51,10 @@ export default function Register() {
       login(res.data);
       navigate("/admin");
     } catch (err) {
+      if (err?.code === "ERR_NETWORK") {
+        setFormError("Backend unreachable. Check deploy URL or CORS.");
+        return;
+      }
       const message =
         err?.response?.data?.message ||
         (err?.response?.status === 409
